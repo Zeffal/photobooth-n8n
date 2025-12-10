@@ -13,13 +13,6 @@ A modern web application that creates AI-generated photos using n8n workflows an
 - 💻 **Modern UI**: Responsive design with real-time status updates
 - ⚡ **TypeScript Backend**: Robust server with proper error handling
 
-## Architecture
-
-### Database Structure (Baserow)
-- **Individual Images Table** (698): Stores initial images and generated individual results
-- **Group Images Table** (700): Stores selected images and generated group results  
-- **Activity Table** (699): Manages single-user access control
-
 
 ## Quick Start
 
