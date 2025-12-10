@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Photobooth - Individual & Group</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎨 AI Photobooth</h1>
+            <p>Create amazing AI-generated photos - Individual or Group</p>
+        </header>
+
+        <main>
+            <!-- Step 1: Mode Selection -->
+            <div id="step1" class="step-container active">
+                <div class="step-header">
+                    <h2>📸 Choose Your Mode</h2>
+                    <p>Select whether you want to create an individual or group photo</p>
+                </div>
+                <div class="mode-selection">
+                    <div class="mode-card" id="individualMode">
+                        <div class="mode-icon">👤</div>
+                        <h3>Individual Photo</h3>
+                        <p>Upload a person photo and outfit to create an AI-generated individual image</p>
+                        <button class="btn btn-primary">Select Individual</button>
+                    </div>
+                    <div class="mode-card" id="groupMode">
+                        <div class="mode-icon">👥</div>
+                        <h3>Group Photo</h3>
+                        <p>Combine multiple individual AI-generated images into a group photo</p>
+                        <button class="btn btn-secondary">Select Group</button>
+                    </div>
+                    <div class="mode-card" id="galleryMode">
+                        <div class="mode-icon">🖼️</div>
+                        <h3>View Gallery</h3>
+                        <p>Browse all previously generated individual and group images</p>
+                        <button class="btn btn-success">View Gallery</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Individual Image Upload -->
+            <div id="step2" class="step-container" style="display: none;">
+                <div class="step-header">
+                    <h2>👤 Individual Photo Creation</h2>
+                    <p>Upload a person photo and an outfit photo to create your AI-generated image</p>
+                </div>
+                <div class="upload-section">
+                    <div class="upload-group">
+                        <div class="upload-card">
+                            <h3>Person Photo</h3>
+                            <div class="upload-area" id="personUploadArea">
+                                <div class="upload-placeholder">
+                                    <div class="upload-icon">📷</div>
+                                    <p>Click to upload person photo</p>
+                                    <small>JPG, PNG up to 10MB</small>
+                                </div>
+                                <img id="personPreview" class="upload-preview" style="display: none;" />
+                            </div>
+                            <input type="file" id="personImageInput" accept="image/*" style="display: none;">
+                        </div>
+                        
+                        <div class="upload-card">
+                            <h3>Outfit Photo</h3>
+                            <div class="upload-area" id="outfitUploadArea">
+                                <div class="upload-placeholder">
+                                    <div class="upload-icon">👔</div>
+                                    <p>Click to upload outfit photo</p>
+                                    <small>JPG, PNG up to 10MB</small>
+                                </div>
+                                <img id="outfitPreview" class="upload-preview" style="display: none;" />
+                            </div>
+                            <input type="file" id="outfitImageInput" accept="image/*" style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <div class="upload-controls">
+                        <button id="processIndividualBtn" class="btn btn-upload" disabled>Generate Individual Photo</button>
+                        <button id="backToModeBtn" class="btn btn-secondary">Back to Mode Selection</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Group Image Selection -->
+            <div id="step3" class="step-container" style="display: none;">
+                <div class="step-header">
+                    <h2>👥 Group Photo Creation</h2>
+                    <p>Select multiple individual AI-generated images to combine into a group photo</p>
+                </div>
+                <div class="group-selection">
+                    <div class="available-images" id="availableImages">
+                        <div class="loading-message">Loading available images...</div>
+                    </div>
+                    
+                    <div class="selected-images">
+                        <h3>Selected Images (<span id="selectedCount">0</span>)</h3>
+                        <div class="selected-grid" id="selectedGrid">
+                            <div class="no-selection">No images selected yet</div>
+                        </div>
+                    </div>
+                    
+                    <div class="group-controls">
+                        <button id="processGroupBtn" class="btn btn-upload" disabled>Generate Group Photo</button>
+                        <button id="backToModeFromGroupBtn" class="btn btn-secondary">Back to Mode Selection</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 4: Processing -->
+            <div id="step4" class="step-container" style="display: none;">
+                <div class="step-header">
+                    <h2 id="processingTitle">🎨 Processing Your Photo</h2>
+                    <p id="processingDescription">AI is working on your image...</p>
+                </div>
+                <div class="processing-section">
+                    <div class="processing-visual">
+                        <div class="processing-spinner"></div>
+                        <div class="processing-steps">
+                            <div class="process-step active" id="processStep1">
+                                <span class="step-icon">📤</span>
+                                <span class="step-text">Uploading images</span>
+                            </div>
+                            <div class="process-step" id="processStep2">
+                                <span class="step-icon">🎨</span>
+                                <span class="step-text">AI processing</span>
+                            </div>
+                            <div class="process-step" id="processStep3">
+                                <span class="step-icon">🖼️</span>
+                                <span class="step-text">Generating result</span>
+                            </div>
+                            <div class="process-step" id="processStep4">
+                                <span class="step-icon">✨</span>
+                                <span class="step-text">Finalizing</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="processing-info">
+                        <p>This usually takes 1-3 minutes. Please wait...</p>
+                        <div class="activity-status">
+                            Status: <span id="activityStatus">Processing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 5: Result Display -->
+            <div id="step5" class="step-container" style="display: none;">
+                <div class="step-header">
+                    <h2>🎉 Your AI Photo is Ready!</h2>
+                    <p>Your AI-generated image has been created successfully</p>
+                </div>
+                <div class="result-section">
+                    <div class="result-display">
+                        <img id="resultImage" class="result-img" alt="Generated AI photo" />
+                        <button id="fullscreenBtn" class="fullscreen-btn" title="View Fullscreen">
+                            🔍
+                        </button>
+                    </div>
+                    
+                    <div class="result-actions">
+                        <div class="action-buttons">
+                            <button id="downloadBtn" class="btn btn-success">
+                                📱 Download Image
+                            </button>
+                            <button id="shareBtn" class="btn btn-secondary">
+                                🔗 Copy Link
+                            </button>
+                        </div>
+                        <div class="restart-section">
+                            <button id="makeNewBtn" class="btn btn-upload">
+                                ✨ Create New Photo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 6: Gallery View -->
+            <div id="step6" class="step-container" style="display: none;">
+                <div class="step-header">
+                    <h2>🖼️ Image Gallery</h2>
+                    <p>Browse all generated images</p>
+                </div>
+                <div class="gallery-section">
+                    <div class="gallery-tabs">
+                        <button class="tab-btn active" id="individualGalleryTab">Individual Images</button>
+                        <button class="tab-btn" id="groupGalleryTab">Group Images</button>
+                    </div>
+                    
+                    <div class="gallery-content">
+                        <div id="individualGallery" class="gallery-grid active">
+                            <div class="loading-message">Loading individual images...</div>
+                        </div>
+                        <div id="groupGallery" class="gallery-grid" style="display: none;">
+                            <div class="loading-message">Loading group images...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="gallery-controls">
+                        <button id="backToModeFromGalleryBtn" class="btn btn-secondary">Back to Mode Selection</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Blocked Screen -->
+            <div id="blockedScreen" class="blocked-screen" style="display: none;">
+                <div class="blocked-content">
+                    <div class="blocked-icon">⏳</div>
+                    <h2>Photobooth is Currently Busy</h2>
+                    <p>Another user is currently using the photobooth. Please wait for them to finish.</p>
+                    <div class="activity-status">
+                        Current Status: <span id="blockedActivityStatus">Processing</span>
+                    </div>
+                    <button id="refreshStatusBtn" class="btn btn-secondary">Refresh Status</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Fullscreen Modal -->
+    <div id="fullscreenModal" class="modal" style="display: none;">
+        <div class="modal-content fullscreen-content">
+            <span class="close" id="closeFullscreenModal">&times;</span>
+            <img id="fullscreenImage" alt="Fullscreen view" />
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
