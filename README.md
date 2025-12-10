@@ -20,9 +20,6 @@ A modern web application that creates AI-generated photos using n8n workflows an
 - **Group Images Table** (700): Stores selected images and generated group results  
 - **Activity Table** (699): Manages single-user access control
 
-### n8n Webhooks
-- **Individual Webhook**: `https://dev-n8n.fxwebapps.com/webhook/a405b599-cb5e-459c-abf2-0e7367d2007a`
-- **Group Webhook**: `https://dev-n8n.fxwebapps.com/webhook/20dbdb7c-15e4-42e5-80c0-7c44985d5090`
 
 ## Quick Start
 
@@ -45,33 +42,6 @@ A modern web application that creates AI-generated photos using n8n workflows an
 
 4. **Open your browser** and navigate to `http://localhost:3000`
 
-## Environment Configuration
-
-Create a `.env` file based on `.env.example`:
-
-```env
-# Server Configuration
-PORT=3000
-
-# n8n Webhook URLs
-N8N_INDIVIDUAL_WEBHOOK_URL=https://dev-n8n.fxwebapps.com/webhook/a405b599-cb5e-459c-abf2-0e7367d2007a
-N8N_GROUP_WEBHOOK_URL=https://dev-n8n.fxwebapps.com/webhook/20dbdb7c-15e4-42e5-80c0-7c44985d5090
-
-# Baserow Configuration
-BASEROW_TOKEN=your_baserow_token_here
-BASEROW_BASE_URL=https://dev-n8n-baserow.fxwebapps.com/api/database/rows/table
-
-# Table IDs and API endpoints
-INDIVIDUAL_IMAGES_TABLE_ID=698
-INDIVIDUAL_IMAGES_API=https://dev-n8n-baserow.fxwebapps.com/api/database/rows/table/698/
-
-GROUP_IMAGES_TABLE_ID=700
-GROUP_IMAGES_API=https://dev-n8n-baserow.fxwebapps.com/api/database/rows/table/700/
-
-ACTIVITY_TABLE_ID=699
-ACTIVITY_ROW_ID=1
-ACTIVITY_API=https://dev-n8n-baserow.fxwebapps.com/api/database/rows/table/699/1/
-```
 
 ## Usage Workflow
 
