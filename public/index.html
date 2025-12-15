@@ -49,6 +49,28 @@
                     <p>Upload a person photo and an outfit photo to create your AI-generated image</p>
                 </div>
                 <div class="upload-section">
+                    <!-- Selection Preview Area -->
+                    <div class="selection-preview" id="selectionPreview" style="display: none;">
+                        <div class="preview-grid">
+                            <div class="preview-item person-preview-item">
+                                <div class="preview-frame">
+                                    <img id="personPreviewImg" alt="Person preview">
+                                    <button class="remove-btn" id="removePersonBtn">×</button>
+                                </div>
+                                <div class="preview-label">Person Photo</div>
+                            </div>
+                            <div class="preview-plus">+</div>
+                            <div class="preview-item outfit-preview-item">
+                                <div class="preview-frame">
+                                    <img id="selectedOutfitImg" alt="Selected outfit">
+                                    <button class="remove-btn" id="removeOutfitBtn">×</button>
+                                </div>
+                                <div class="preview-label">Selected Outfit</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Upload/Selection Areas -->
                     <div class="upload-grid">
                         <div class="upload-item">
                             <h3>👤 Person Photo</h3>
@@ -59,8 +81,8 @@
                             </div>
                             <input type="file" id="personImageInput" accept="image/*" style="display: none;">
                             <div class="image-preview" id="personPreview" style="display: none;">
-                                <img id="personPreviewImg" alt="Person preview">
-                                <button class="remove-btn" id="removePersonBtn">×</button>
+                                <img id="personPreviewImgHidden" alt="Person preview">
+                                <button class="remove-btn" id="removePersonBtnHidden">×</button>
                             </div>
                         </div>
                         
@@ -72,8 +94,8 @@
                             <div class="selected-outfit" id="selectedOutfit" style="display: none;">
                                 <h4>Selected Outfit:</h4>
                                 <div class="selected-outfit-preview">
-                                    <img id="selectedOutfitImg" alt="Selected outfit">
-                                    <button class="remove-btn" id="removeOutfitBtn">×</button>
+                                    <img id="selectedOutfitImgHidden" alt="Selected outfit">
+                                    <button class="remove-btn" id="removeOutfitBtnHidden">×</button>
                                 </div>
                             </div>
                         </div>
@@ -172,8 +194,8 @@
                             </button>
                         </div>
                         <div class="restart-section">
-                            <button id="makeNewBtn" class="btn btn-upload">
-                                ✨ Create New Photo
+                            <button id="backToModeFromResultBtn" class="btn btn-secondary">
+                                🏠 Back to Mode Selection
                             </button>
                         </div>
                     </div>

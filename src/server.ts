@@ -435,6 +435,8 @@ app.post('/upload-group', async (req, res) => {
 // Get latest generated image (individual or group) endpoint
 app.get('/get-latest-result', async (req, res) => {
   try {
+    console.log('Fetching latest results from Baserow...');
+    
     // Check both individual and group tables for latest results
     const [individualImages, groupImages] = await Promise.all([
       getIndividualImages(),
@@ -443,46 +445,73 @@ app.get('/get-latest-result', async (req, res) => {
       }).then(response => response.data.results || [])
     ]);
     
+    console.log(`Found ${individualImages.length} individual images, ${groupImages.length} group images`);
+    
     // Find latest completed results (most recent first)
-    const latestIndividual = individualImages
-      .filter((img: any) => img.Status === 'Completed' && img['Generated Individual Image']?.length > 0)
-      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime())[0];
+    const completedIndividual = individualImages
+      .filter((img: any) => {
+        const hasStatus = img.Status === 'Completed';
+        const hasImage = img['Generated Individual Image']?.length > 0;
+        console.log(`Individual ${img.id}: Status=${img.Status}, HasImage=${hasImage}, Created=${img.created_on}`);
+        return hasStatus && hasImage;
+      })
+      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime());
     
-    const latestGroup = groupImages
-      .filter((img: any) => img.Status === 'Completed' && img['Generated Group Image']?.length > 0)
-      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime())[0];
+    const completedGroup = groupImages
+      .filter((img: any) => {
+        const hasStatus = img.Status === 'Completed';
+        const hasImage = img['Generated Group Image']?.length > 0;
+        console.log(`Group ${img.id}: Status=${img.Status}, HasImage=${hasImage}, Created=${img.created_on}`);
+        return hasStatus && hasImage;
+      })
+      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime());
     
-    // Determine which is more recent (within last 5 minutes to ensure it's current session)
+    console.log(`Completed individual: ${completedIndividual.length}, Completed group: ${completedGroup.length}`);
+    
+    // Get the most recent result regardless of time (remove 5-minute restriction)
     let latestResult = null;
     let resultType = null;
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    
+    const latestIndividual = completedIndividual[0];
+    const latestGroup = completedGroup[0];
     
     if (latestIndividual && latestGroup) {
       const individualTime = new Date(latestIndividual.created_on);
       const groupTime = new Date(latestGroup.created_on);
       
-      // Only consider recent results
-      if (groupTime > individualTime && groupTime > fiveMinutesAgo) {
+      if (groupTime > individualTime) {
         latestResult = latestGroup;
         resultType = 'group';
-      } else if (individualTime > fiveMinutesAgo) {
+      } else {
         latestResult = latestIndividual;
         resultType = 'individual';
       }
-    } else if (latestIndividual && new Date(latestIndividual.created_on) > fiveMinutesAgo) {
+    } else if (latestIndividual) {
       latestResult = latestIndividual;
       resultType = 'individual';
-    } else if (latestGroup && new Date(latestGroup.created_on) > fiveMinutesAgo) {
+    } else if (latestGroup) {
       latestResult = latestGroup;
       resultType = 'group';
     }
     
     if (!latestResult) {
-      return res.status(404).json({ error: 'No recent completed results found' });
+      console.log('No completed results found');
+      return res.status(404).json({ 
+        success: false,
+        error: 'No completed results found',
+        debug: {
+          individualCount: individualImages.length,
+          groupCount: groupImages.length,
+          completedIndividualCount: completedIndividual.length,
+          completedGroupCount: completedGroup.length
+        }
+      });
     }
     
     const imageField = resultType === 'individual' ? 'Generated Individual Image' : 'Generated Group Image';
     const imageUrl = latestResult[imageField][0].url;
+    
+    console.log(`Found latest result: ${resultType} image with URL: ${imageUrl}`);
     
     res.json({
       success: true,
@@ -495,7 +524,110 @@ app.get('/get-latest-result', async (req, res) => {
     
   } catch (error: any) {
     console.error('Error fetching latest result:', error);
-    res.status(500).json({ error: 'Failed to fetch latest result' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch latest result',
+      details: error.message 
+    });
+  }
+});
+
+// Get latest individual image by highest ID (most recent)
+app.get('/get-latest-individual', async (req, res) => {
+  try {
+    console.log('Fetching latest individual image by highest ID...');
+    const images = await getIndividualImages();
+    
+    // Filter completed images and sort by ID (highest first)
+    const completedImages = images
+      .filter((img: any) => img.Status === 'Completed' && img['Generated Individual Image']?.length > 0)
+      .sort((a: any, b: any) => b.id - a.id); // Sort by ID descending (newest first)
+    
+    console.log('Latest completed images by ID:', completedImages.slice(0, 3).map((img: any) => ({
+      id: img.id,
+      status: img.Status,
+      created_on: img.created_on
+    })));
+    
+    if (completedImages.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'No completed individual images found' 
+      });
+    }
+    
+    const latestImage = completedImages[0];
+    const imageUrl = latestImage['Generated Individual Image'][0].url;
+    
+    console.log(`Latest individual image: ID ${latestImage.id}, URL: ${imageUrl}`);
+    
+    res.json({
+      success: true,
+      image: {
+        id: latestImage.id,
+        imageUrl: imageUrl,
+        createdAt: latestImage.created_on,
+        status: latestImage.Status
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error fetching latest individual image:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch latest individual image' 
+    });
+  }
+});
+
+// Get latest group image by highest ID (most recent)
+app.get('/get-latest-group', async (req, res) => {
+  try {
+    console.log('Fetching latest group image by highest ID...');
+    const response = await axios.get(`${GROUP_IMAGES_API}?user_field_names=true`, {
+      headers: { 'Authorization': `Token ${BASEROW_TOKEN}` }
+    });
+    const images = response.data.results || [];
+    
+    // Filter completed images and sort by ID (highest first)
+    const completedImages = images
+      .filter((img: any) => img.Status === 'Completed' && img['Generated Group Image']?.length > 0)
+      .sort((a: any, b: any) => b.id - a.id); // Sort by ID descending (newest first)
+    
+    console.log('Latest completed group images by ID:', completedImages.slice(0, 3).map((img: any) => ({
+      id: img.id,
+      status: img.Status,
+      created_on: img.created_on
+    })));
+    
+    if (completedImages.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'No completed group images found' 
+      });
+    }
+    
+    const latestImage = completedImages[0];
+    const imageUrl = latestImage['Generated Group Image'][0].url;
+    
+    console.log(`Latest group image: ID ${latestImage.id}, URL: ${imageUrl}`);
+    
+    res.json({
+      success: true,
+      image: {
+        id: latestImage.id,
+        imageUrl: imageUrl,
+        createdAt: latestImage.created_on,
+        status: latestImage.Status
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Error fetching latest group image:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to fetch latest group image' 
+    });
   }
 });
 
@@ -505,9 +637,21 @@ app.get('/gallery/individual', async (req, res) => {
     const images = await getIndividualImages();
     
     // Filter completed individual images and format for gallery
-    const galleryImages = images
-      .filter((img: any) => img.Status === 'Completed' && img['Generated Individual Image']?.length > 0)
-      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime())
+    const completedImages = images.filter((img: any) => img.Status === 'Completed' && img['Generated Individual Image']?.length > 0);
+    
+    console.log('All completed images before sorting:', completedImages.map((img: any) => ({
+      id: img.id,
+      created_on: img.created_on,
+      status: img.Status
+    })));
+    
+    const galleryImages = completedImages
+      .sort((a: any, b: any) => {
+        const timeA = new Date(a.created_on).getTime();
+        const timeB = new Date(b.created_on).getTime();
+        console.log(`Comparing: ID ${a.id} (${a.created_on}) vs ID ${b.id} (${b.created_on})`);
+        return timeB - timeA; // Newest first
+      })
       .map((img: any) => ({
         id: img.id,
         generatedImage: img['Generated Individual Image'][0],
@@ -516,6 +660,11 @@ app.get('/gallery/individual', async (req, res) => {
         createdAt: img.created_on,
         updatedAt: img.updated_on
       }));
+    
+    console.log('Gallery images after sorting (first 3):', galleryImages.slice(0, 3).map((img: any) => ({
+      id: img.id,
+      createdAt: img.createdAt
+    })));
     
     res.json({
       success: true,
@@ -538,17 +687,34 @@ app.get('/gallery/group', async (req, res) => {
     const images = response.data.results || [];
     
     // Filter completed group images and format for gallery
-    const galleryImages = images
-      .filter((img: any) => img.Status === 'Completed' && img['Generated Group Image']?.length > 0)
-      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime())
+    const completedImages = images.filter((img: any) => img.Status === 'Completed' && img['Generated Group Image']?.length > 0);
+    
+    console.log('All completed group images before sorting:', completedImages.map((img: any) => ({
+      id: img.id,
+      created_on: img.created_on,
+      status: img.Status
+    })));
+    
+    const galleryImages = completedImages
+      .sort((a: any, b: any) => {
+        const timeA = new Date(a.created_on).getTime();
+        const timeB = new Date(b.created_on).getTime();
+        console.log(`Comparing group: ID ${a.id} (${a.created_on}) vs ID ${b.id} (${b.created_on})`);
+        return timeB - timeA; // Newest first
+      })
       .map((img: any) => ({
         id: img.id,
-        generatedImage: img['Generated Group Image'][0],
+        generatedGroupImage: img['Generated Group Image'][0],
         selectedImages: img['Selected Images'] || [],
         status: img.Status,
         createdAt: img.created_on,
         updatedAt: img.updated_on
       }));
+    
+    console.log('Group gallery images after sorting (first 3):', galleryImages.slice(0, 3).map((img: any) => ({
+      id: img.id,
+      createdAt: img.createdAt
+    })));
     
     res.json({
       success: true,

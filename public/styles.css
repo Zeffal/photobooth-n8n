@@ -493,6 +493,35 @@ header p {
     gap: 30px;
 }
 
+/* Error Result Display */
+.error-result {
+    background: #fed7d7;
+    border: 2px solid #fc8181;
+    border-radius: 15px;
+    padding: 40px 20px;
+    margin: 20px auto;
+    max-width: 500px;
+    text-align: center;
+}
+
+.error-icon {
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
+
+.error-result h3 {
+    color: #c53030;
+    margin-bottom: 15px;
+    font-size: 1.5rem;
+}
+
+.error-result p {
+    color: #742a2a;
+    margin-bottom: 25px;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
 .action-buttons {
     display: flex;
     justify-content: center;
@@ -570,14 +599,17 @@ header p {
 .fullscreen-content {
     padding: 0;
     background: transparent;
-    max-width: 95vw;
-    max-height: 95vh;
+    max-width: 100vw;
+    max-height: 100vh;
+    display: flex;
+    align-self: center;
+    justify-content: center;
 }
 
 .fullscreen-content img {
-    max-width: 100%;
-    max-height: 100%;
-    border-radius: 10px;
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
 }
 
 .close {
@@ -780,6 +812,89 @@ header p {
     margin-top: 40px;
     padding-top: 30px;
     border-top: 2px solid #e2e8f0;
+}
+
+/* Selection Preview Styles */
+.selection-preview {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+}
+
+.preview-grid {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.preview-item {
+    text-align: center;
+}
+
+.preview-frame {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    border: 3px solid #ffd700;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.preview-frame img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+}
+
+.preview-frame .remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #e53e3e;
+    color: white;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.preview-frame .remove-btn:hover {
+    background: #c53030;
+    transform: scale(1.1);
+}
+
+.preview-label {
+    margin-top: 10px;
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.preview-plus {
+    font-size: 2rem;
+    color: #ffd700;
+    font-weight: bold;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
 /* Outfit Selection Styles */
@@ -987,5 +1102,20 @@ header p {
     .selected-outfit-preview img {
         width: 100px;
         height: 100px;
+    }
+    
+    .preview-grid {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .preview-frame {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .preview-plus {
+        transform: rotate(90deg);
+        font-size: 1.5rem;
     }
 }

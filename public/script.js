@@ -20,6 +20,11 @@ class PhotoboothApp {
         this.personPreview = document.getElementById('personPreview');
         this.processIndividualBtn = document.getElementById('processIndividualBtn');
         
+        // Selection preview elements
+        this.selectionPreview = document.getElementById('selectionPreview');
+        this.personPreviewImg = document.getElementById('personPreviewImg');
+        this.removePersonBtn = document.getElementById('removePersonBtn');
+        
         // Outfit selection elements
         this.outfitGrid = document.getElementById('outfitGrid');
         this.selectedOutfit = document.getElementById('selectedOutfit');
@@ -42,7 +47,7 @@ class PhotoboothApp {
         this.backToModeBtn = document.getElementById('backToModeBtn');
         this.backToModeFromGroupBtn = document.getElementById('backToModeFromGroupBtn');
         this.backToModeFromGalleryBtn = document.getElementById('backToModeFromGalleryBtn');
-        this.makeNewBtn = document.getElementById('makeNewBtn');
+        this.backToModeFromResultBtn = document.getElementById('backToModeFromResultBtn');
         this.refreshStatusBtn = document.getElementById('refreshStatusBtn');
         
         // Processing elements
@@ -68,8 +73,9 @@ class PhotoboothApp {
         this.personImageFile = null;
         this.selectedOutfitUrl = null;
         this.selectedImageIds = [];
-        this.currentActivity = 'Finish';
         this.currentResultUrl = null;
+        this.currentActivity = 'Finish';
+        this.currentGenerationType = null; // Track what type of generation is in progress
         this.pollIntervalId = null;
         this.processingStepIndex = 0;
         
@@ -87,6 +93,7 @@ class PhotoboothApp {
         // Individual upload
         this.personUploadArea?.addEventListener('click', () => this.personImageInput.click());
         this.personImageInput?.addEventListener('change', (e) => this.handlePersonImageUpload(e));
+        this.removePersonBtn?.addEventListener('click', () => this.removePersonImage());
         this.removeOutfitBtn?.addEventListener('click', () => this.removeSelectedOutfit());
         this.processIndividualBtn?.addEventListener('click', () => this.processIndividualImages());
         
@@ -101,7 +108,7 @@ class PhotoboothApp {
         this.backToModeBtn?.addEventListener('click', () => this.showStep(1));
         this.backToModeFromGroupBtn?.addEventListener('click', () => this.showStep(1));
         this.backToModeFromGalleryBtn?.addEventListener('click', () => this.showStep(1));
-        this.makeNewBtn?.addEventListener('click', () => this.resetApp());
+        this.backToModeFromResultBtn?.addEventListener('click', () => window.location.reload());
         this.refreshStatusBtn?.addEventListener('click', () => this.checkActivityStatus());
         
         // Result actions
@@ -226,9 +233,25 @@ class PhotoboothApp {
         const file = event.target.files[0];
         if (file) {
             this.personImageFile = file;
-            this.showImagePreview(file, this.personPreview, this.personUploadArea);
+            this.showPersonPreview(file);
             this.checkIndividualReadiness();
         }
+    }
+    
+    showPersonPreview(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.personPreviewImg.src = e.target.result;
+            this.updateSelectionPreview();
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    removePersonImage() {
+        this.personImageFile = null;
+        this.personPreviewImg.src = '';
+        this.updateSelectionPreview();
+        this.checkIndividualReadiness();
     }
     
     async loadOutfitAssets() {
@@ -267,27 +290,37 @@ class PhotoboothApp {
     selectOutfit(outfitUrl, filename) {
         this.selectedOutfitUrl = outfitUrl;
         this.selectedOutfitImg.src = outfitUrl;
-        this.selectedOutfit.style.display = 'block';
-        
-        // Hide outfit grid and show selected outfit
-        this.outfitGrid.style.display = 'none';
-        
+        this.updateSelectionPreview();
         this.checkIndividualReadiness();
     }
     
     removeSelectedOutfit() {
         this.selectedOutfitUrl = null;
-        this.selectedOutfit.style.display = 'none';
-        this.outfitGrid.style.display = 'block';
+        this.selectedOutfitImg.src = '';
+        this.updateSelectionPreview();
         this.checkIndividualReadiness();
+    }
+    
+    updateSelectionPreview() {
+        const hasPersonImage = this.personImageFile && this.personPreviewImg.src;
+        const hasOutfitImage = this.selectedOutfitUrl && this.selectedOutfitImg.src;
+        
+        if (hasPersonImage || hasOutfitImage) {
+            this.selectionPreview.style.display = 'block';
+        } else {
+            this.selectionPreview.style.display = 'none';
+        }
     }
     
     showImagePreview(file, previewElement, uploadArea) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            previewElement.src = e.target.result;
+            const img = previewElement.querySelector('img');
+            if (img) {
+                img.src = e.target.result;
+            }
             previewElement.style.display = 'block';
-            uploadArea.querySelector('.upload-placeholder').style.display = 'none';
+            uploadArea.style.display = 'none';
         };
         reader.readAsDataURL(file);
     }
@@ -307,6 +340,10 @@ class PhotoboothApp {
         }
         
         try {
+            // Set generation type and timestamp
+            this.currentGenerationType = 'individual';
+            this.generationStartTime = new Date().toISOString();
+            
             // Update activity to Starting
             await this.updateActivity('Starting');
             
@@ -430,18 +467,22 @@ class PhotoboothApp {
     }
     
     async processGroupImages() {
-        if (this.selectedImageIds.length < 2) {
-            alert('Please select at least 2 images for group photo');
+        if (this.selectedImageIds.length === 0) {
+            alert('Please select at least one image for group processing');
             return;
         }
         
         try {
+            // Set generation type and timestamp
+            this.currentGenerationType = 'group';
+            this.generationStartTime = new Date().toISOString();
+            
             // Update activity to Starting
             await this.updateActivity('Starting');
             
             // Show processing screen
             this.processingTitle.textContent = '👥 Processing Group Photo';
-            this.processingDescription.textContent = 'AI is combining your selected images into a group photo...';
+            this.processingDescription.textContent = 'AI is combining your selected images...';
             this.showStep(4);
             this.startProcessingAnimation();
             
@@ -491,24 +532,91 @@ class PhotoboothApp {
     
     async checkForResults() {
         try {
-            const response = await fetch('/get-latest-result');
+            console.log(`Checking for latest ${this.currentGenerationType} result...`);
+            
+            // Use gallery endpoint and sort by highest ID on frontend
+            const endpoint = this.currentGenerationType === 'individual' 
+                ? '/gallery/individual' 
+                : '/gallery/group';
+            
+            const response = await fetch(endpoint);
             const result = await response.json();
             
-            if (result.success) {
-                this.currentResultUrl = result.imageUrl;
-                this.showResult(result.imageUrl);
+            console.log(`${this.currentGenerationType} gallery response:`, result);
+            
+            if (result.success && result.images && result.images.length > 0) {
+                // Sort by ID (highest first) to get the newest image
+                const sortedImages = result.images.sort((a, b) => b.id - a.id);
+                const latestImage = sortedImages[0];
+                
+                console.log(`Latest image object:`, latestImage);
+                
+                let imageUrl;
+                if (this.currentGenerationType === 'individual') {
+                    imageUrl = latestImage.generatedImage?.url;
+                } else {
+                    // For group images, check both possible field structures
+                    imageUrl = latestImage.generatedGroupImage?.url || latestImage.generatedImage?.url;
+                }
+                
+                console.log(`Found latest ${this.currentGenerationType} image (ID: ${latestImage.id}):`, imageUrl);
+                
+                if (imageUrl) {
+                    this.currentResultUrl = imageUrl;
+                    this.showResult(imageUrl, this.currentGenerationType);
+                } else {
+                    console.error('No image URL found in latest image object');
+                    setTimeout(() => {
+                        this.checkForResults();
+                    }, 2000);
+                }
             } else {
-                console.log('No results available yet');
-                this.resetToMode();
+                console.log(`No ${this.currentGenerationType} results available, retrying in 2 seconds...`);
+                setTimeout(() => {
+                    this.checkForResults();
+                }, 2000);
             }
         } catch (error) {
             console.error('Error checking for results:', error);
-            this.resetToMode();
+            setTimeout(() => {
+                this.checkForResults();
+            }, 2000);
         }
     }
     
-    showResult(imageUrl) {
+    showResult(imageUrl, resultType) {
+        // Set the current result URL for button functionality
+        this.currentResultUrl = imageUrl;
         this.resultImage.src = imageUrl;
+        
+        // Update result title based on type
+        const resultTitle = document.querySelector('#step5 h2');
+        if (resultTitle) {
+            if (resultType === 'individual') {
+                resultTitle.textContent = '🎨 Your Individual Photo is Ready!';
+            } else if (resultType === 'group') {
+                resultTitle.textContent = '👥 Your Group Photo is Ready!';
+            } else {
+                resultTitle.textContent = '✨ Your Photo is Ready!';
+            }
+        }
+        
+        this.showStep(5);
+    }
+    
+    showResultError(errorMessage) {
+        // Show error in result step instead of going back to home
+        const resultContainer = document.querySelector('#step5 .result-container');
+        if (resultContainer) {
+            resultContainer.innerHTML = `
+                <div class="error-result">
+                    <div class="error-icon">⚠️</div>
+                    <h3>Generation Failed</h3>
+                    <p>${errorMessage}</p>
+                    <button class="btn btn-primary" onclick="photoboothApp.resetToMode()">Try Again</button>
+                </div>
+            `;
+        }
         this.showStep(5);
     }
     
@@ -677,7 +785,6 @@ class PhotoboothApp {
                     </div>
                 </div>
                 <div class="gallery-info">
-                    <p class="gallery-date">${new Date(image.createdAt).toLocaleDateString()}</p>
                     <p class="gallery-id">ID: ${image.id}</p>
                 </div>
             </div>
@@ -708,7 +815,6 @@ class PhotoboothApp {
                     </div>
                 </div>
                 <div class="gallery-info">
-                    <p class="gallery-date">${new Date(image.createdAt).toLocaleDateString()}</p>
                     <p class="gallery-id">ID: ${image.id}</p>
                 </div>
             </div>
