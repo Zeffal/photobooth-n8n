@@ -204,37 +204,43 @@ app.post('/update_activity', async (req, res) => {
 
 // Upload individual images (person + outfit) endpoint
 app.post('/upload-individual', upload.fields([
-  { name: 'personImage', maxCount: 1 },
-  { name: 'outfitImage', maxCount: 1 }
+  { name: 'personImage', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const { outfitUrl } = req.body;
     
-    if (!files.personImage || !files.outfitImage) {
-      return res.status(400).json({ error: 'Both person and outfit images are required' });
+    if (!files.personImage || !outfitUrl) {
+      return res.status(400).json({ error: 'Both person image and outfit URL are required' });
     }
 
     const personImage = files.personImage[0];
-    const outfitImage = files.outfitImage[0];
 
-    console.log('Received individual images:', {
+    console.log('Received individual request:', {
       person: { name: personImage.originalname, size: personImage.size },
-      outfit: { name: outfitImage.originalname, size: outfitImage.size }
+      outfitUrl: outfitUrl
     });
 
     // Update activity to Processing before sending to n8n
     console.log('Setting activity to Processing for individual images...');
     await updateActivity('Processing');
 
+    // Download outfit image from URL
+    const outfitResponse = await axios.get(outfitUrl, { 
+      responseType: 'arraybuffer',
+      baseURL: `http://localhost:${PORT}`
+    });
+    const outfitBuffer = Buffer.from(outfitResponse.data);
+    
     // Create FormData for n8n webhook
     const formData = new FormData();
     formData.append('personImage', personImage.buffer, {
       filename: personImage.originalname || 'person.jpg',
       contentType: personImage.mimetype || 'image/jpeg'
     });
-    formData.append('outfitImage', outfitImage.buffer, {
-      filename: outfitImage.originalname || 'outfit.jpg',
-      contentType: outfitImage.mimetype || 'image/jpeg'
+    formData.append('outfitImage', outfitBuffer, {
+      filename: 'outfit.jpg',
+      contentType: 'image/jpeg'
     });
 
     // Send to n8n individual workflow
@@ -281,6 +287,36 @@ app.post('/upload-individual', upload.fields([
         details: error.message
       });
     }
+  }
+});
+
+// Get available outfit assets
+app.get('/get-outfit-assets', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    const assetsDir = path.join(__dirname, '../public/assets');
+    const files = fs.readdirSync(assetsDir);
+    
+    // Filter for image files
+    const imageFiles = files.filter((file: string) => 
+      /\.(jpg|jpeg|png|gif|webp)$/i.test(file)
+    );
+    
+    const outfits = imageFiles.map((file: string) => ({
+      filename: file,
+      url: `/assets/${file}`,
+      name: file.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '').replace(/[-_]/g, ' ')
+    }));
+    
+    res.json({
+      success: true,
+      outfits: outfits
+    });
+  } catch (error: any) {
+    console.error('Error fetching outfit assets:', error);
+    res.status(500).json({ error: 'Failed to fetch outfit assets' });
   }
 });
 

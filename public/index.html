@@ -49,31 +49,33 @@
                     <p>Upload a person photo and an outfit photo to create your AI-generated image</p>
                 </div>
                 <div class="upload-section">
-                    <div class="upload-group">
-                        <div class="upload-card">
-                            <h3>Person Photo</h3>
+                    <div class="upload-grid">
+                        <div class="upload-item">
+                            <h3>👤 Person Photo</h3>
                             <div class="upload-area" id="personUploadArea">
-                                <div class="upload-placeholder">
-                                    <div class="upload-icon">📷</div>
-                                    <p>Click to upload person photo</p>
-                                    <small>JPG, PNG up to 10MB</small>
-                                </div>
-                                <img id="personPreview" class="upload-preview" style="display: none;" />
+                                <div class="upload-icon">📷</div>
+                                <p>Click to upload person photo</p>
+                                <p class="upload-hint">JPG, PNG (Max 10MB)</p>
                             </div>
                             <input type="file" id="personImageInput" accept="image/*" style="display: none;">
+                            <div class="image-preview" id="personPreview" style="display: none;">
+                                <img id="personPreviewImg" alt="Person preview">
+                                <button class="remove-btn" id="removePersonBtn">×</button>
+                            </div>
                         </div>
                         
-                        <div class="upload-card">
-                            <h3>Outfit Photo</h3>
-                            <div class="upload-area" id="outfitUploadArea">
-                                <div class="upload-placeholder">
-                                    <div class="upload-icon">👔</div>
-                                    <p>Click to upload outfit photo</p>
-                                    <small>JPG, PNG up to 10MB</small>
-                                </div>
-                                <img id="outfitPreview" class="upload-preview" style="display: none;" />
+                        <div class="upload-item outfit-selection">
+                            <h3>👔 Select Outfit</h3>
+                            <div class="outfit-grid" id="outfitGrid">
+                                <div class="loading-message">Loading available outfits...</div>
                             </div>
-                            <input type="file" id="outfitImageInput" accept="image/*" style="display: none;">
+                            <div class="selected-outfit" id="selectedOutfit" style="display: none;">
+                                <h4>Selected Outfit:</h4>
+                                <div class="selected-outfit-preview">
+                                    <img id="selectedOutfitImg" alt="Selected outfit">
+                                    <button class="remove-btn" id="removeOutfitBtn">×</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     

@@ -16,12 +16,15 @@ class PhotoboothApp {
         
         // Individual upload elements
         this.personUploadArea = document.getElementById('personUploadArea');
-        this.outfitUploadArea = document.getElementById('outfitUploadArea');
         this.personImageInput = document.getElementById('personImageInput');
-        this.outfitImageInput = document.getElementById('outfitImageInput');
         this.personPreview = document.getElementById('personPreview');
-        this.outfitPreview = document.getElementById('outfitPreview');
         this.processIndividualBtn = document.getElementById('processIndividualBtn');
+        
+        // Outfit selection elements
+        this.outfitGrid = document.getElementById('outfitGrid');
+        this.selectedOutfit = document.getElementById('selectedOutfit');
+        this.selectedOutfitImg = document.getElementById('selectedOutfitImg');
+        this.removeOutfitBtn = document.getElementById('removeOutfitBtn');
         
         // Group selection elements
         this.availableImages = document.getElementById('availableImages');
@@ -61,8 +64,9 @@ class PhotoboothApp {
         
         // State variables
         this.currentMode = null;
+        this.selectedImages = [];
         this.personImageFile = null;
-        this.outfitImageFile = null;
+        this.selectedOutfitUrl = null;
         this.selectedImageIds = [];
         this.currentActivity = 'Finish';
         this.currentResultUrl = null;
@@ -82,9 +86,8 @@ class PhotoboothApp {
         
         // Individual upload
         this.personUploadArea?.addEventListener('click', () => this.personImageInput.click());
-        this.outfitUploadArea?.addEventListener('click', () => this.outfitImageInput.click());
         this.personImageInput?.addEventListener('change', (e) => this.handlePersonImageUpload(e));
-        this.outfitImageInput?.addEventListener('change', (e) => this.handleOutfitImageUpload(e));
+        this.removeOutfitBtn?.addEventListener('click', () => this.removeSelectedOutfit());
         this.processIndividualBtn?.addEventListener('click', () => this.processIndividualImages());
         
         // Group processing
@@ -183,6 +186,7 @@ class PhotoboothApp {
         this.currentMode = mode;
         
         if (mode === 'individual') {
+            this.loadOutfitAssets();
             this.showStep(2);
         } else if (mode === 'group') {
             this.loadAvailableImages();
@@ -227,13 +231,55 @@ class PhotoboothApp {
         }
     }
     
-    handleOutfitImageUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-            this.outfitImageFile = file;
-            this.showImagePreview(file, this.outfitPreview, this.outfitUploadArea);
-            this.checkIndividualReadiness();
+    async loadOutfitAssets() {
+        try {
+            this.outfitGrid.innerHTML = '<div class="loading-message">Loading available outfits...</div>';
+            
+            const response = await fetch('/get-outfit-assets');
+            const result = await response.json();
+            
+            if (result.success && result.outfits.length > 0) {
+                this.displayOutfitGrid(result.outfits);
+            } else {
+                this.outfitGrid.innerHTML = '<div class="error-message">No outfit assets found.</div>';
+            }
+        } catch (error) {
+            console.error('Error loading outfit assets:', error);
+            this.outfitGrid.innerHTML = '<div class="error-message">Error loading outfits. Please try again.</div>';
         }
+    }
+    
+    displayOutfitGrid(outfits) {
+        const outfitsHtml = outfits.map(outfit => `
+            <div class="outfit-option" onclick="photoboothApp.selectOutfit('${outfit.url}', '${outfit.filename}')">
+                <img src="${outfit.url}" alt="${outfit.name}" />
+                <div class="outfit-name">${outfit.name}</div>
+            </div>
+        `).join('');
+        
+        this.outfitGrid.innerHTML = `
+            <div class="outfit-options">
+                ${outfitsHtml}
+            </div>
+        `;
+    }
+    
+    selectOutfit(outfitUrl, filename) {
+        this.selectedOutfitUrl = outfitUrl;
+        this.selectedOutfitImg.src = outfitUrl;
+        this.selectedOutfit.style.display = 'block';
+        
+        // Hide outfit grid and show selected outfit
+        this.outfitGrid.style.display = 'none';
+        
+        this.checkIndividualReadiness();
+    }
+    
+    removeSelectedOutfit() {
+        this.selectedOutfitUrl = null;
+        this.selectedOutfit.style.display = 'none';
+        this.outfitGrid.style.display = 'block';
+        this.checkIndividualReadiness();
     }
     
     showImagePreview(file, previewElement, uploadArea) {
@@ -247,7 +293,7 @@ class PhotoboothApp {
     }
     
     checkIndividualReadiness() {
-        if (this.personImageFile && this.outfitImageFile) {
+        if (this.personImageFile && this.selectedOutfitUrl) {
             this.processIndividualBtn.disabled = false;
         } else {
             this.processIndividualBtn.disabled = true;
@@ -255,8 +301,8 @@ class PhotoboothApp {
     }
     
     async processIndividualImages() {
-        if (!this.personImageFile || !this.outfitImageFile) {
-            alert('Please select both person and outfit images');
+        if (!this.personImageFile || !this.selectedOutfitUrl) {
+            alert('Please select both person image and outfit');
             return;
         }
         
@@ -273,7 +319,7 @@ class PhotoboothApp {
             // Create FormData
             const formData = new FormData();
             formData.append('personImage', this.personImageFile);
-            formData.append('outfitImage', this.outfitImageFile);
+            formData.append('outfitUrl', this.selectedOutfitUrl);
             
             // Upload to server
             const response = await fetch('/upload-individual', {

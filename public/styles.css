@@ -782,6 +782,116 @@ header p {
     border-top: 2px solid #e2e8f0;
 }
 
+/* Outfit Selection Styles */
+.outfit-selection {
+    width: 100%;
+}
+
+.outfit-grid {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 15px;
+    background: #f8fafc;
+}
+
+.outfit-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 20px;
+}
+
+.outfit-option {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    aspect-ratio: 3/4;
+    display: flex;
+    flex-direction: column;
+}
+
+.outfit-option:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+}
+
+.outfit-option img {
+    width: 100%;
+    flex: 1;
+    object-fit: contain;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    background: #f8fafc;
+}
+
+.outfit-name {
+    font-size: 0.75rem;
+    color: #4a5568;
+    font-weight: 600;
+    text-transform: capitalize;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid #e2e8f0;
+    line-height: 1.2;
+}
+
+.selected-outfit {
+    margin-top: 20px;
+    padding: 15px;
+    background: white;
+    border: 2px solid #48bb78;
+    border-radius: 12px;
+}
+
+.selected-outfit h4 {
+    color: #2d3748;
+    margin-bottom: 10px;
+    font-size: 1rem;
+}
+
+.selected-outfit-preview {
+    position: relative;
+    display: inline-block;
+}
+
+.selected-outfit-preview img {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 2px solid #48bb78;
+}
+
+.selected-outfit-preview .remove-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #e53e3e;
+    color: white;
+    border: none;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.selected-outfit-preview .remove-btn:hover {
+    background: #c53030;
+    transform: scale(1.1);
+}
+
 /* Mode Selection - Update for 3 cards */
 .mode-selection {
     display: grid;
@@ -853,5 +963,29 @@ header p {
     .tab-btn.active {
         border-color: #667eea;
         background: rgba(102, 126, 234, 0.1);
+    }
+    
+    .outfit-options {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 15px;
+    }
+    
+    .outfit-option {
+        padding: 8px;
+        aspect-ratio: 3/4;
+    }
+    
+    .outfit-option img {
+        margin-bottom: 8px;
+    }
+    
+    .outfit-name {
+        font-size: 0.7rem;
+        padding-top: 6px;
+    }
+    
+    .selected-outfit-preview img {
+        width: 100px;
+        height: 100px;
     }
 }
