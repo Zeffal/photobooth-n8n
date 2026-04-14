@@ -5,6 +5,7 @@ import FormData from 'form-data';
 import path from 'path';
 import dotenv from 'dotenv';
 import cors from 'cors';
+import { v2 as cloudinary } from 'cloudinary';
 
 // Load environment variables
 dotenv.config();
@@ -16,11 +17,19 @@ const PORT = process.env.PORT || 3000;
 const N8N_INDIVIDUAL_WEBHOOK_URL = process.env.N8N_INDIVIDUAL_WEBHOOK_URL!;
 const N8N_GROUP_WEBHOOK_URL = process.env.N8N_GROUP_WEBHOOK_URL!;
 
-// Baserow configuration
-const BASEROW_TOKEN = process.env.BASEROW_TOKEN!;
-const INDIVIDUAL_IMAGES_API = process.env.INDIVIDUAL_IMAGES_API!;
-const GROUP_IMAGES_API = process.env.GROUP_IMAGES_API!;
-const ACTIVITY_API = process.env.ACTIVITY_API!;
+// n8n Activity Webhook configuration
+const N8N_UPDATE_ACTIVITY_WEBHOOK = process.env.N8N_UPDATE_ACTIVITY_WEBHOOK!;
+const N8N_GET_ACTIVITY_WEBHOOK = process.env.N8N_GET_ACTIVITY_WEBHOOK!;
+
+// Cloudinary configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME!,
+  api_key: process.env.CLOUDINARY_API_KEY!,
+  api_secret: process.env.CLOUDINARY_API_SECRET!
+});
+
+const CLOUDINARY_INDIVIDUAL_FOLDER = process.env.CLOUDINARY_INDIVIDUAL_FOLDER || 'individual';
+const CLOUDINARY_GROUP_FOLDER = process.env.CLOUDINARY_GROUP_FOLDER || 'group';
 
 // Store current activity status
 let currentActivity: string = 'Finish';
@@ -39,17 +48,16 @@ app.use(cors());
 app.use(express.static(path.join(__dirname, '../public')));
 app.use(express.json());
 
-// Helper function to update activity status in Baserow
+// Helper function to update activity status via n8n webhook
 async function updateActivity(activity: string) {
   try {
     console.log(`Attempting to update activity to: ${activity}`);
-    console.log(`Using API URL: ${ACTIVITY_API}?user_field_names=true`);
+    console.log(`Using n8n webhook: ${N8N_UPDATE_ACTIVITY_WEBHOOK}`);
     
-    const response = await axios.patch(`${ACTIVITY_API}?user_field_names=true`, {
-      Activity: activity
+    const response = await axios.post(N8N_UPDATE_ACTIVITY_WEBHOOK, {
+      activity: activity
     }, {
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json'
       },
       timeout: 10000
@@ -67,19 +75,18 @@ async function updateActivity(activity: string) {
   }
 }
 
-// Function to fetch activity status
+// Function to fetch activity status via n8n webhook
 async function fetchActivityStatus() {
   try {
-    const response = await axios.get(`${ACTIVITY_API}?user_field_names=true`, {
+    const response = await axios.get(N8N_GET_ACTIVITY_WEBHOOK, {
       headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
         'Content-Type': 'application/json'
       },
       timeout: 10000
     });
 
-    if (response.data && response.data.Activity) {
-      const newActivity = response.data.Activity;
+    if (response.data && response.data.activity) {
+      const newActivity = response.data.activity;
       if (newActivity !== currentActivity) {
         console.log(`Activity changed: ${currentActivity} -> ${newActivity}`);
         currentActivity = newActivity;
@@ -90,77 +97,71 @@ async function fetchActivityStatus() {
   }
 }
 
-// Function to create individual image record in Baserow
-async function createIndividualImageRecord(personImageUrl: string, outfitImageUrl: string) {
-  try {
-    const response = await axios.post(`${INDIVIDUAL_IMAGES_API}?user_field_names=true`, {
-      'Initial Images': [
-        { url: personImageUrl, name: 'person.jpg' },
-        { url: outfitImageUrl, name: 'outfit.jpg' }
-      ],
-      'Status': 'Processing'
-    }, {
-      headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    return response.data;
-  } catch (error: any) {
-    console.error('Error creating individual image record:', error.message);
-    throw error;
-  }
-}
-
-// Function to get individual images from Baserow
+// Function to get individual images from Cloudinary
 async function getIndividualImages() {
   try {
-    const response = await axios.get(`${INDIVIDUAL_IMAGES_API}?user_field_names=true`, {
-      headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`
-      }
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: CLOUDINARY_INDIVIDUAL_FOLDER,
+      max_results: 500,
+      resource_type: 'image'
     });
     
-    return response.data.results || [];
+    return result.resources.map((resource: any) => ({
+      id: resource.public_id,
+      url: resource.secure_url,
+      created_at: resource.created_at,
+      format: resource.format,
+      width: resource.width,
+      height: resource.height
+    }));
   } catch (error: any) {
-    console.error('Error fetching individual images:', error.message);
+    console.error('Error fetching individual images from Cloudinary:', error.message);
     throw error;
   }
 }
 
-// Function to get specific individual image by ID
-async function getIndividualImageById(rowId: number) {
+// Function to get specific individual image by ID from Cloudinary
+async function getIndividualImageById(publicId: string) {
   try {
-    const response = await axios.get(`${INDIVIDUAL_IMAGES_API}${rowId}/?user_field_names=true`, {
-      headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`
-      }
+    const result = await cloudinary.api.resource(publicId, {
+      resource_type: 'image'
     });
     
-    return response.data;
+    return {
+      id: result.public_id,
+      url: result.secure_url,
+      created_at: result.created_at,
+      format: result.format,
+      width: result.width,
+      height: result.height
+    };
   } catch (error: any) {
-    console.error('Error fetching individual image by ID:', error.message);
+    console.error('Error fetching individual image by ID from Cloudinary:', error.message);
     throw error;
   }
 }
 
-// Function to create group image record in Baserow
-async function createGroupImageRecord(selectedImageIds: number[]) {
+// Function to get group images from Cloudinary
+async function getGroupImages() {
   try {
-    const response = await axios.post(`${GROUP_IMAGES_API}?user_field_names=true`, {
-      'Selected Images': selectedImageIds,
-      'Status': 'Processing'
-    }, {
-      headers: {
-        'Authorization': `Token ${BASEROW_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
+    const result = await cloudinary.api.resources({
+      type: 'upload',
+      prefix: CLOUDINARY_GROUP_FOLDER,
+      max_results: 500,
+      resource_type: 'image'
     });
     
-    return response.data;
+    return result.resources.map((resource: any) => ({
+      id: resource.public_id,
+      url: resource.secure_url,
+      created_at: resource.created_at,
+      format: resource.format,
+      width: resource.width,
+      height: resource.height
+    }));
   } catch (error: any) {
-    console.error('Error creating group image record:', error.message);
+    console.error('Error fetching group images from Cloudinary:', error.message);
     throw error;
   }
 }
@@ -325,18 +326,13 @@ app.get('/get-individual-images', async (req, res) => {
   try {
     const images = await getIndividualImages();
     
-    // Filter only completed individual images with generated results
-    const completedImages = images.filter((img: any) => 
-      img.Status === 'Completed' && img['Generated Individual Image'] && img['Generated Individual Image'].length > 0
-    );
-    
     res.json({
       success: true,
-      images: completedImages.map((img: any) => ({
+      images: images.map((img: any) => ({
         id: img.id,
-        generatedImage: img['Generated Individual Image'][0],
-        status: img.Status,
-        createdAt: img.created_on
+        generatedImage: { url: img.url },
+        status: 'Completed',
+        createdAt: img.created_at
       }))
     });
   } catch (error: any) {
@@ -360,7 +356,7 @@ app.post('/upload-group', async (req, res) => {
     console.log('Setting activity to Processing for group images...');
     await updateActivity('Processing');
 
-    // Get the selected individual images from Baserow
+    // Get the selected individual images from Cloudinary
     const allImages = await getIndividualImages();
     const selectedImages = allImages.filter((img: any) => selectedImageIds.includes(img.id));
     
@@ -373,7 +369,7 @@ app.post('/upload-group', async (req, res) => {
     
     for (let i = 0; i < selectedImages.length; i++) {
       const image = selectedImages[i];
-      const generatedImageUrl = image['Generated Individual Image'][0].url;
+      const generatedImageUrl = image.url;
       
       // Download the generated image and add to form data
       const imageResponse = await axios.get(generatedImageUrl, { responseType: 'arraybuffer' });
@@ -435,49 +431,37 @@ app.post('/upload-group', async (req, res) => {
 // Get latest generated image (individual or group) endpoint
 app.get('/get-latest-result', async (req, res) => {
   try {
-    console.log('Fetching latest results from Baserow...');
+    console.log('Fetching latest results from Cloudinary...');
     
-    // Check both individual and group tables for latest results
+    // Check both individual and group folders for latest results
     const [individualImages, groupImages] = await Promise.all([
       getIndividualImages(),
-      axios.get(`${GROUP_IMAGES_API}?user_field_names=true`, {
-        headers: { 'Authorization': `Token ${BASEROW_TOKEN}` }
-      }).then(response => response.data.results || [])
+      getGroupImages()
     ]);
     
     console.log(`Found ${individualImages.length} individual images, ${groupImages.length} group images`);
     
-    // Find latest completed results (most recent first)
-    const completedIndividual = individualImages
-      .filter((img: any) => {
-        const hasStatus = img.Status === 'Completed';
-        const hasImage = img['Generated Individual Image']?.length > 0;
-        console.log(`Individual ${img.id}: Status=${img.Status}, HasImage=${hasImage}, Created=${img.created_on}`);
-        return hasStatus && hasImage;
-      })
-      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime());
+    // Sort by creation time (most recent first)
+    const sortedIndividual = individualImages.sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
     
-    const completedGroup = groupImages
-      .filter((img: any) => {
-        const hasStatus = img.Status === 'Completed';
-        const hasImage = img['Generated Group Image']?.length > 0;
-        console.log(`Group ${img.id}: Status=${img.Status}, HasImage=${hasImage}, Created=${img.created_on}`);
-        return hasStatus && hasImage;
-      })
-      .sort((a: any, b: any) => new Date(b.created_on).getTime() - new Date(a.created_on).getTime());
+    const sortedGroup = groupImages.sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
     
-    console.log(`Completed individual: ${completedIndividual.length}, Completed group: ${completedGroup.length}`);
+    console.log(`Sorted individual: ${sortedIndividual.length}, Sorted group: ${sortedGroup.length}`);
     
-    // Get the most recent result regardless of time (remove 5-minute restriction)
+    // Get the most recent result
     let latestResult = null;
     let resultType = null;
     
-    const latestIndividual = completedIndividual[0];
-    const latestGroup = completedGroup[0];
+    const latestIndividual = sortedIndividual[0];
+    const latestGroup = sortedGroup[0];
     
     if (latestIndividual && latestGroup) {
-      const individualTime = new Date(latestIndividual.created_on);
-      const groupTime = new Date(latestGroup.created_on);
+      const individualTime = new Date(latestIndividual.created_at);
+      const groupTime = new Date(latestGroup.created_at);
       
       if (groupTime > individualTime) {
         latestResult = latestGroup;
@@ -501,15 +485,12 @@ app.get('/get-latest-result', async (req, res) => {
         error: 'No completed results found',
         debug: {
           individualCount: individualImages.length,
-          groupCount: groupImages.length,
-          completedIndividualCount: completedIndividual.length,
-          completedGroupCount: completedGroup.length
+          groupCount: groupImages.length
         }
       });
     }
     
-    const imageField = resultType === 'individual' ? 'Generated Individual Image' : 'Generated Group Image';
-    const imageUrl = latestResult[imageField][0].url;
+    const imageUrl = latestResult.url;
     
     console.log(`Found latest result: ${resultType} image with URL: ${imageUrl}`);
     
@@ -517,8 +498,8 @@ app.get('/get-latest-result', async (req, res) => {
       success: true,
       type: resultType,
       imageUrl: imageUrl,
-      status: latestResult.Status,
-      createdAt: latestResult.created_on,
+      status: 'Completed',
+      createdAt: latestResult.created_at,
       id: latestResult.id
     });
     
@@ -535,29 +516,28 @@ app.get('/get-latest-result', async (req, res) => {
 // Get latest individual image by highest ID (most recent)
 app.get('/get-latest-individual', async (req, res) => {
   try {
-    console.log('Fetching latest individual image by highest ID...');
+    console.log('Fetching latest individual image from Cloudinary...');
     const images = await getIndividualImages();
     
-    // Filter completed images and sort by ID (highest first)
-    const completedImages = images
-      .filter((img: any) => img.Status === 'Completed' && img['Generated Individual Image']?.length > 0)
-      .sort((a: any, b: any) => b.id - a.id); // Sort by ID descending (newest first)
+    // Sort by creation time (most recent first)
+    const sortedImages = images.sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
     
-    console.log('Latest completed images by ID:', completedImages.slice(0, 3).map((img: any) => ({
+    console.log('Latest individual images:', sortedImages.slice(0, 3).map((img: any) => ({
       id: img.id,
-      status: img.Status,
-      created_on: img.created_on
+      created_at: img.created_at
     })));
     
-    if (completedImages.length === 0) {
+    if (sortedImages.length === 0) {
       return res.status(404).json({ 
         success: false, 
-        error: 'No completed individual images found' 
+        error: 'No individual images found' 
       });
     }
     
-    const latestImage = completedImages[0];
-    const imageUrl = latestImage['Generated Individual Image'][0].url;
+    const latestImage = sortedImages[0];
+    const imageUrl = latestImage.url;
     
     console.log(`Latest individual image: ID ${latestImage.id}, URL: ${imageUrl}`);
     
@@ -566,8 +546,8 @@ app.get('/get-latest-individual', async (req, res) => {
       image: {
         id: latestImage.id,
         imageUrl: imageUrl,
-        createdAt: latestImage.created_on,
-        status: latestImage.Status
+        createdAt: latestImage.created_at,
+        status: 'Completed'
       }
     });
     
@@ -583,32 +563,28 @@ app.get('/get-latest-individual', async (req, res) => {
 // Get latest group image by highest ID (most recent)
 app.get('/get-latest-group', async (req, res) => {
   try {
-    console.log('Fetching latest group image by highest ID...');
-    const response = await axios.get(`${GROUP_IMAGES_API}?user_field_names=true`, {
-      headers: { 'Authorization': `Token ${BASEROW_TOKEN}` }
-    });
-    const images = response.data.results || [];
+    console.log('Fetching latest group image from Cloudinary...');
+    const images = await getGroupImages();
     
-    // Filter completed images and sort by ID (highest first)
-    const completedImages = images
-      .filter((img: any) => img.Status === 'Completed' && img['Generated Group Image']?.length > 0)
-      .sort((a: any, b: any) => b.id - a.id); // Sort by ID descending (newest first)
+    // Sort by creation time (most recent first)
+    const sortedImages = images.sort((a: any, b: any) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
     
-    console.log('Latest completed group images by ID:', completedImages.slice(0, 3).map((img: any) => ({
+    console.log('Latest group images:', sortedImages.slice(0, 3).map((img: any) => ({
       id: img.id,
-      status: img.Status,
-      created_on: img.created_on
+      created_at: img.created_at
     })));
     
-    if (completedImages.length === 0) {
+    if (sortedImages.length === 0) {
       return res.status(404).json({ 
         success: false, 
-        error: 'No completed group images found' 
+        error: 'No group images found' 
       });
     }
     
-    const latestImage = completedImages[0];
-    const imageUrl = latestImage['Generated Group Image'][0].url;
+    const latestImage = sortedImages[0];
+    const imageUrl = latestImage.url;
     
     console.log(`Latest group image: ID ${latestImage.id}, URL: ${imageUrl}`);
     
@@ -617,8 +593,8 @@ app.get('/get-latest-group', async (req, res) => {
       image: {
         id: latestImage.id,
         imageUrl: imageUrl,
-        createdAt: latestImage.created_on,
-        status: latestImage.Status
+        createdAt: latestImage.created_at,
+        status: 'Completed'
       }
     });
     
@@ -636,29 +612,22 @@ app.get('/gallery/individual', async (req, res) => {
   try {
     const images = await getIndividualImages();
     
-    // Filter completed individual images and format for gallery
-    const completedImages = images.filter((img: any) => img.Status === 'Completed' && img['Generated Individual Image']?.length > 0);
-    
-    console.log('All completed images before sorting:', completedImages.map((img: any) => ({
-      id: img.id,
-      created_on: img.created_on,
-      status: img.Status
-    })));
-    
-    const galleryImages = completedImages
+    // Sort by creation time (newest first)
+    const galleryImages = images
       .sort((a: any, b: any) => {
-        const timeA = new Date(a.created_on).getTime();
-        const timeB = new Date(b.created_on).getTime();
-        console.log(`Comparing: ID ${a.id} (${a.created_on}) vs ID ${b.id} (${b.created_on})`);
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        console.log(`Comparing: ID ${a.id} (${a.created_at}) vs ID ${b.id} (${b.created_at})`);
         return timeB - timeA; // Newest first
       })
       .map((img: any) => ({
         id: img.id,
-        generatedImage: img['Generated Individual Image'][0],
-        initialImages: img['Initial Images'] || [],
-        status: img.Status,
-        createdAt: img.created_on,
-        updatedAt: img.updated_on
+        generatedImage: { url: img.url },
+        status: 'Completed',
+        createdAt: img.created_at,
+        format: img.format,
+        width: img.width,
+        height: img.height
       }));
     
     console.log('Gallery images after sorting (first 3):', galleryImages.slice(0, 3).map((img: any) => ({
@@ -680,35 +649,24 @@ app.get('/gallery/individual', async (req, res) => {
 // Get group images gallery endpoint
 app.get('/gallery/group', async (req, res) => {
   try {
-    const response = await axios.get(`${GROUP_IMAGES_API}?user_field_names=true`, {
-      headers: { 'Authorization': `Token ${BASEROW_TOKEN}` }
-    });
+    const images = await getGroupImages();
     
-    const images = response.data.results || [];
-    
-    // Filter completed group images and format for gallery
-    const completedImages = images.filter((img: any) => img.Status === 'Completed' && img['Generated Group Image']?.length > 0);
-    
-    console.log('All completed group images before sorting:', completedImages.map((img: any) => ({
-      id: img.id,
-      created_on: img.created_on,
-      status: img.Status
-    })));
-    
-    const galleryImages = completedImages
+    // Sort by creation time (newest first)
+    const galleryImages = images
       .sort((a: any, b: any) => {
-        const timeA = new Date(a.created_on).getTime();
-        const timeB = new Date(b.created_on).getTime();
-        console.log(`Comparing group: ID ${a.id} (${a.created_on}) vs ID ${b.id} (${b.created_on})`);
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        console.log(`Comparing group: ID ${a.id} (${a.created_at}) vs ID ${b.id} (${b.created_at})`);
         return timeB - timeA; // Newest first
       })
       .map((img: any) => ({
         id: img.id,
-        generatedGroupImage: img['Generated Group Image'][0],
-        selectedImages: img['Selected Images'] || [],
-        status: img.Status,
-        createdAt: img.created_on,
-        updatedAt: img.updated_on
+        generatedGroupImage: { url: img.url },
+        status: 'Completed',
+        createdAt: img.created_at,
+        format: img.format,
+        width: img.width,
+        height: img.height
       }));
     
     console.log('Group gallery images after sorting (first 3):', galleryImages.slice(0, 3).map((img: any) => ({
@@ -736,8 +694,10 @@ app.listen(PORT, () => {
   console.log(`🚀 Photobooth Server running on http://localhost:${PORT}`);
   console.log(`📸 Individual webhook: ${N8N_INDIVIDUAL_WEBHOOK_URL}`);
   console.log(`👥 Group webhook: ${N8N_GROUP_WEBHOOK_URL}`);
-  console.log(`📊 Baserow Individual API: ${INDIVIDUAL_IMAGES_API}`);
-  console.log(`📊 Baserow Group API: ${GROUP_IMAGES_API}`);
-  console.log(`⚡ Activity status polling: ${ACTIVITY_API}`);
+  console.log(`⚡ Activity update webhook: ${N8N_UPDATE_ACTIVITY_WEBHOOK}`);
+  console.log(`📊 Activity get webhook: ${N8N_GET_ACTIVITY_WEBHOOK}`);
   console.log(`🔄 Activity status will be polled every 2 seconds`);
+  console.log(`☁️  Cloudinary Cloud: ${process.env.CLOUDINARY_CLOUD_NAME}`);
+  console.log(`📁 Individual folder: ${CLOUDINARY_INDIVIDUAL_FOLDER}`);
+  console.log(`📁 Group folder: ${CLOUDINARY_GROUP_FOLDER}`);
 });

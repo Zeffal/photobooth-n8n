@@ -158,28 +158,35 @@ class PhotoboothApp {
             const data = await response.json();
             const newActivity = data.Activity;
             
+            // Always update the status display
+            if (this.activityStatus) {
+                this.activityStatus.textContent = newActivity;
+            }
+            if (this.blockedActivityStatus) {
+                this.blockedActivityStatus.textContent = newActivity;
+            }
+            
             if (newActivity !== this.currentActivity) {
                 console.log(`Activity changed: ${this.currentActivity} -> ${newActivity}`);
                 this.currentActivity = newActivity;
                 
-                if (this.activityStatus) {
-                    this.activityStatus.textContent = newActivity;
-                }
-                if (this.blockedActivityStatus) {
-                    this.blockedActivityStatus.textContent = newActivity;
-                }
-                
                 // Handle activity changes
                 if (newActivity === 'Finish') {
+                    // Only proceed if we're currently processing (step 4 is visible)
+                    if (this.step4.style.display !== 'none') {
+                        console.log('Processing finished! Checking for results...');
+                        // Wait a moment for the result to be saved, then check
+                        setTimeout(() => {
+                            this.checkForResults();
+                        }, 1000);
+                    }
+                    // Hide blocked screen if it's showing
                     if (this.blockedScreen.style.display !== 'none') {
                         this.hideBlockedScreen();
                     }
-                    if (this.step4.style.display !== 'none') {
-                        // Processing finished, check for results
-                        await this.checkForResults();
-                    }
                 } else if (newActivity === 'Processing' || newActivity === 'Starting') {
-                    if (this.step4.style.display === 'none' && this.step5.style.display === 'none') {
+                    // Keep showing processing screen if we're in the middle of generation
+                    if (this.currentGenerationType && this.step4.style.display === 'none' && this.step5.style.display === 'none') {
                         this.showBlockedScreen();
                     }
                 }
@@ -344,14 +351,14 @@ class PhotoboothApp {
             this.currentGenerationType = 'individual';
             this.generationStartTime = new Date().toISOString();
             
-            // Update activity to Starting
-            await this.updateActivity('Starting');
-            
-            // Show processing screen
+            // Show processing screen immediately
             this.processingTitle.textContent = '🎨 Processing Individual Photo';
             this.processingDescription.textContent = 'AI is combining your person and outfit images...';
             this.showStep(4);
             this.startProcessingAnimation();
+            
+            // Update activity to Starting
+            await this.updateActivity('Starting');
             
             // Create FormData
             const formData = new FormData();
@@ -368,7 +375,9 @@ class PhotoboothApp {
             
             if (result.success) {
                 console.log('Individual images uploaded successfully');
+                console.log('Waiting for n8n workflow to complete...');
                 // Processing will continue in background, polling will handle completion
+                // The loading screen (step 4) will stay visible until activity becomes 'Finish'
             } else {
                 throw new Error(result.error || 'Upload failed');
             }
@@ -376,6 +385,7 @@ class PhotoboothApp {
         } catch (error) {
             console.error('Error processing individual images:', error);
             alert('Error processing images: ' + error.message);
+            this.currentGenerationType = null;
             this.resetToMode();
         }
     }
@@ -532,9 +542,8 @@ class PhotoboothApp {
     
     async checkForResults() {
         try {
-            console.log(`Checking for latest ${this.currentGenerationType} result...`);
+            console.log(`Checking for ${this.currentGenerationType} results...`);
             
-            // Use gallery endpoint and sort by highest ID on frontend
             const endpoint = this.currentGenerationType === 'individual' 
                 ? '/gallery/individual' 
                 : '/gallery/group';
@@ -542,9 +551,7 @@ class PhotoboothApp {
             const response = await fetch(endpoint);
             const result = await response.json();
             
-            console.log(`${this.currentGenerationType} gallery response:`, result);
-            
-            if (result.success && result.images && result.images.length > 0) {
+            if (result.success && result.images.length > 0) {
                 // Sort by ID (highest first) to get the newest image
                 const sortedImages = result.images.sort((a, b) => b.id - a.id);
                 const latestImage = sortedImages[0];
@@ -563,23 +570,46 @@ class PhotoboothApp {
                 
                 if (imageUrl) {
                     this.currentResultUrl = imageUrl;
-                    this.showResult(imageUrl, this.currentGenerationType);
+                    this.currentGenerationType = null; // Reset generation type
+                    this.showResult(imageUrl, this.currentGenerationType === 'individual' ? 'individual' : 'group');
                 } else {
                     console.error('No image URL found in latest image object');
+                    console.log('Retrying in 2 seconds...');
                     setTimeout(() => {
                         this.checkForResults();
                     }, 2000);
                 }
             } else {
-                console.log(`No ${this.currentGenerationType} results available, retrying in 2 seconds...`);
+                console.log(`No ${this.currentGenerationType} results available yet, retrying in 2 seconds...`);
                 setTimeout(() => {
                     this.checkForResults();
                 }, 2000);
             }
         } catch (error) {
             console.error('Error checking for results:', error);
+            console.log('Retrying in 2 seconds...');
             setTimeout(() => {
                 this.checkForResults();
+            }, 2000);
+        }
+    }
+    
+    async pollForActivity() {
+        try {
+            const response = await fetch('/get_activity');
+            const result = await response.json();
+            
+            if (result.success && result.activity === 'Finish') {
+                this.checkForResults();
+            } else {
+                setTimeout(() => {
+                    this.pollForActivity();
+                }, 2000);
+            }
+        } catch (error) {
+            console.error('Error polling for activity:', error);
+            setTimeout(() => {
+                this.pollForActivity();
             }, 2000);
         }
     }
