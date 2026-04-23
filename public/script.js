@@ -625,7 +625,7 @@ class PhotoboothApp {
             if (resultType === 'individual') {
                 resultTitle.textContent = '🎨 Your Individual Photo is Ready!';
             } else if (resultType === 'group') {
-                resultTitle.textContent = '👥 Your Group Photo is Ready!';
+                resultTitle.textContent = '👥 Your Photo is Ready!';
             } else {
                 resultTitle.textContent = '✨ Your Photo is Ready!';
             }
