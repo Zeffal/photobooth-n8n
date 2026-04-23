@@ -7,7 +7,9 @@
     "start": "npm install && ts-node src/server.ts",
     "build": "tsc",
     "dev": "nodemon --exec ts-node src/server.ts",
-    "prod": "npm run build && node dist/server.js"
+    "prod": "npm run build && node dist/server.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -25,6 +27,7 @@
     "@types/node": "^20.10.0",
     "nodemon": "^3.0.0",
     "ts-node": "^10.9.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "wrangler": "^4.84.1"
   }
 }
