@@ -419,7 +419,7 @@ class PhotoboothApp {
             <div class="available-image" data-id="${image.id}">
                 <img src="${image.generatedImage.url}" alt="Generated image ${image.id}" />
                 <div class="image-overlay">
-                    <button class="select-btn" onclick="photoboothApp.toggleImageSelection(${image.id})">
+                    <button class="select-btn" onclick="photoboothApp.toggleImageSelection('${image.id}')">
                         Select
                     </button>
                 </div>
@@ -466,7 +466,7 @@ class PhotoboothApp {
                 return `
                     <div class="selected-image">
                         <img src="${imgSrc}" alt="Selected image ${id}" />
-                        <button class="remove-btn" onclick="photoboothApp.toggleImageSelection(${id})">×</button>
+                        <button class="remove-btn" onclick="photoboothApp.toggleImageSelection('${id}')">×</button>
                     </div>
                 `;
             }).join('');

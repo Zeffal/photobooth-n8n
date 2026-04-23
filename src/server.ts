@@ -357,12 +357,20 @@ app.post('/upload-group', async (req, res) => {
     await updateActivity('Processing');
 
     // Get the selected individual images from Cloudinary
-    const allImages = await getIndividualImages();
-    const selectedImages = allImages.filter((img: any) => selectedImageIds.includes(img.id));
+    // selectedImageIds are the public_ids from Cloudinary (e.g., "individual/image123")
+    const selectedImages = [];
     
-    if (selectedImages.length !== selectedImageIds.length) {
-      throw new Error('Some selected images not found');
+    for (const imageId of selectedImageIds) {
+      try {
+        const image = await getIndividualImageById(imageId);
+        selectedImages.push(image);
+      } catch (error) {
+        console.error(`Failed to fetch image ${imageId}:`, error);
+        throw new Error(`Image ${imageId} not found in Cloudinary`);
+      }
     }
+
+    console.log(`Fetched ${selectedImages.length} images from Cloudinary for group processing`);
 
     // Create FormData for n8n webhook with selected generated images
     const formData = new FormData();
@@ -371,15 +379,19 @@ app.post('/upload-group', async (req, res) => {
       const image = selectedImages[i];
       const generatedImageUrl = image.url;
       
-      // Download the generated image and add to form data
+      console.log(`Downloading image ${i + 1}/${selectedImages.length} from Cloudinary: ${generatedImageUrl}`);
+      
+      // Download the generated image from Cloudinary and add to form data
       const imageResponse = await axios.get(generatedImageUrl, { responseType: 'arraybuffer' });
       const imageBuffer = Buffer.from(imageResponse.data);
       
       formData.append(`image${i + 1}`, imageBuffer, {
-        filename: `generated_${image.id}.jpg`,
-        contentType: 'image/jpeg'
+        filename: `generated_${image.id.replace(/\//g, '_')}.${image.format || 'jpg'}`,
+        contentType: `image/${image.format || 'jpeg'}`
       });
     }
+    
+    console.log(`Prepared ${selectedImages.length} images for n8n group workflow`);
 
     // Send to n8n group workflow
     console.log('Sending to n8n group webhook:', N8N_GROUP_WEBHOOK_URL);
